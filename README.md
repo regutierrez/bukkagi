@@ -9,8 +9,8 @@ It shows search steps, sources and streamed answers, and supports follow-ups in 
 Raycast cannot install extensions from GitHub, so install it as a development extension:
 
 ```bash
-git clone git@github.com:regutierrez/raycast-ask-kagi.git
-cd raycast-ask-kagi
+git clone git@github.com:regutierrez/bukkagi.git
+cd bukkagi
 npm install
 npm run dev   # registers "Ask Kagi" in Raycast; Ctrl-C afterwards, the command stays
 ```
