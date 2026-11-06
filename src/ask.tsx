@@ -3,6 +3,7 @@ import {
   ActionPanel,
   Alert,
   Color,
+  Detail,
   Icon,
   Keyboard,
   LaunchProps,
@@ -28,6 +29,10 @@ import {
 } from "./threads";
 
 type Settings = { model: string; search: boolean; effort: string };
+
+// The full-width answer view is pushed onto Raycast's navigation stack, outside this list's render.
+// It reads the threads from here so a streaming answer keeps updating there too.
+const live = { threads: [] as Thread[], stop: () => {}, listeners: new Set<() => void>() };
 type Run = { threadId: string; turnId: string; controller: AbortController; toast: Promise<Toast> };
 
 const FLUSH_MS = 80; // batch text deltas so the pane re-renders about 12 times a second
@@ -272,6 +277,12 @@ export default function Command(props: LaunchProps<{ arguments: Arguments.Ask }>
     startTurn(queued.question, queued.threadId, { model, search, effort });
   }, [running, queued]);
 
+  useEffect(() => {
+    live.threads = threads;
+    live.stop = stop;
+    live.listeners.forEach((l) => l());
+  }, [threads, stop]);
+
   const active = threads.find((t) => t.id === activeId) ?? null;
   const settings: Settings = { model, search, effort };
   const selectedModel = models?.find((m) => m.id === model);
@@ -345,6 +356,48 @@ export default function Command(props: LaunchProps<{ arguments: Arguments.Ask }>
     );
   }
 
+  /** Question rows top to bottom: the current turn first, then earlier turns, newest first. */
+  function questionIds(thread: Thread): string[] {
+    return thread.turns.map((t) => t.id).reverse();
+  }
+
+  /** ⌥↑/⌥↓ jump between questions and skip the source rows. From a source row, ⌥↑ goes to its question. */
+  function jump(thread: Thread, dir: 1 | -1) {
+    const ids = questionIds(thread);
+    const onSource = selectedId?.includes("-src-") ?? false;
+    const at = ids.findIndex((id) => selectedId?.startsWith(id));
+    if (at === -1) return setSelectedId(ids[0]); // the Ask row
+    const next = onSource && dir === -1 ? at : at + dir;
+    if (next >= 0 && next < ids.length) setSelectedId(ids[next]);
+  }
+
+  function viewSection(thread: Thread, turn?: Turn) {
+    return (
+      <ActionPanel.Section title="View">
+        {turn && (
+          <Action.Push
+            title="Focus Answer"
+            icon={Icon.Maximize}
+            shortcut={{ modifiers: ["cmd"], key: "f" }}
+            target={<FullAnswer threadId={thread.id} turnId={turn.id} />}
+          />
+        )}
+        <Action
+          title="Next Question"
+          icon={Icon.ArrowDown}
+          shortcut={{ modifiers: ["opt"], key: "arrowDown" }}
+          onAction={() => jump(thread, 1)}
+        />
+        <Action
+          title="Previous Question"
+          icon={Icon.ArrowUp}
+          shortcut={{ modifiers: ["opt"], key: "arrowUp" }}
+          onAction={() => jump(thread, -1)}
+        />
+      </ActionPanel.Section>
+    );
+  }
+
   function answerActions(thread: Thread, turn: Turn) {
     // After a stop or an error, Retry comes first, so ↵ and ⌘R both retry.
     const failed = turn.status === "error" || turn.status === "stopped";
@@ -376,6 +429,7 @@ export default function Command(props: LaunchProps<{ arguments: Arguments.Ask }>
             />
           )}
         </ActionPanel.Section>
+        {viewSection(thread, turn)}
         {threadSection(thread, turn)}
         {settingsSection}
       </ActionPanel>
@@ -406,6 +460,7 @@ export default function Command(props: LaunchProps<{ arguments: Arguments.Ask }>
             />
           )}
           {stopAction}
+          {active && viewSection(active)}
           {settingsSection}
         </ActionPanel>
       }
@@ -516,6 +571,7 @@ export default function Command(props: LaunchProps<{ arguments: Arguments.Ask }>
           />
         </ActionPanel.Section>
         {stopAction}
+        {viewSection(thread, turn)}
         {threadSection(thread, turn)}
         {settingsSection}
       </ActionPanel>
@@ -694,5 +750,40 @@ function ModelDropdown(props: {
       <List.Dropdown.Section title="Search the Web">{ids.map((id) => item(true, id))}</List.Dropdown.Section>
       <List.Dropdown.Section title="No Web Search">{ids.map((id) => item(false, id))}</List.Dropdown.Section>
     </List.Dropdown>
+  );
+}
+
+function FullAnswer({ threadId, turnId }: { threadId: string; turnId: string }) {
+  const read = () => live.threads.find((t) => t.id === threadId)?.turns.find((t) => t.id === turnId);
+  const [turn, setTurn] = useState(read);
+  useEffect(() => {
+    const update = () => setTurn(read());
+    live.listeners.add(update);
+    return () => {
+      live.listeners.delete(update);
+    };
+  }, []);
+  if (!turn) return <Detail markdown="This answer is no longer available." />;
+  const running = turn.status === "running";
+  return (
+    <Detail
+      isLoading={running}
+      navigationTitle={turn.question}
+      markdown={turnMarkdown(turn, true)}
+      actions={
+        <ActionPanel>
+          <Action.CopyToClipboard title="Copy Answer" content={turn.text} />
+          <Action.Paste title="Paste Answer" content={turn.text} />
+          <Action.CopyToClipboard
+            title="Copy with Sources"
+            content={answerWithSources(turn)}
+            shortcut={Keyboard.Shortcut.Common.Copy}
+          />
+          {running && (
+            <Action title="Stop" icon={Icon.Stop} shortcut={{ modifiers: ["cmd"], key: "." }} onAction={() => live.stop()} />
+          )}
+        </ActionPanel>
+      }
+    />
   );
 }

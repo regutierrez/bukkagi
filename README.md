@@ -27,6 +27,8 @@ To update: `git pull && npm install && npm run dev`.
 | ⌘↵ | Ask without web search |
 | ⌘. | Stop the answer |
 | ⌘R | Retry or regenerate |
+| ⌥↑ / ⌥↓ | Jump to the previous or next question, skipping sources |
+| ⌘F | Show the selected answer full width (Esc to go back) |
 | ⌘N | New thread |
 | ⌘P | Model and web search dropdown |
 | ⌘E | Reasoning effort |
