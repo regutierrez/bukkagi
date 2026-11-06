@@ -1,0 +1,50 @@
+{
+  "$schema": "https://www.raycast.com/schemas/extension.json",
+  "name": "ask-kagi",
+  "title": "Ask Kagi",
+  "description": "Ask the web with Kagi Assistant. Streamed answers with search steps, sources and follow-ups.",
+  "icon": "icon.png",
+  "author": "pael",
+  "license": "MIT",
+  "categories": ["Productivity", "Web"],
+  "commands": [
+    {
+      "name": "ask",
+      "title": "Ask Kagi",
+      "subtitle": "Kagi Web Answers",
+      "description": "Ask a question. Kagi searches the web and answers with sources.",
+      "mode": "view",
+      "arguments": [{ "name": "question", "type": "text", "placeholder": "Question", "required": false }]
+    }
+  ],
+  "preferences": [
+    {
+      "name": "proxyUrl",
+      "type": "textfield",
+      "title": "Proxy URL",
+      "description": "Base URL of the Kagi Assistant proxy.",
+      "default": "https://kagi.esquie.pael.dev",
+      "required": true
+    },
+    {
+      "name": "apiKey",
+      "type": "password",
+      "title": "Proxy API Key",
+      "description": "Sent as Authorization: Bearer <key>.",
+      "required": true
+    }
+  ],
+  "dependencies": {
+    "@raycast/api": "^2.11.1",
+    "@raycast/utils": "^2.3.3"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/react": "^19.0.0",
+    "typescript": "^5.6.0"
+  },
+  "scripts": {
+    "build": "ray build",
+    "dev": "ray develop"
+  }
+}
